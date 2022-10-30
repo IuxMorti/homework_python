@@ -1,37 +1,63 @@
 import csv
 import re
 import prettytable
+import datetime
 
-ru_name = {"name": "Название",
-           "description": "Описание",
-           "key_skills": "Навыки",
-           "experience_id": "Опыт работы",
-           "premium": "Премиум-вакансия",
-           "employer_name": "Компания",
-           "salary_from": "Нижняя граница вилки оклада",
-           "salary_to": "Верхняя граница вилки оклада",
-           "salary_gross": "Оклад указан до вычета налогов",
-           "salary_currency": "Идентификатор валюты оклада",
-           "salary": "Оклад",
-           "area_name": "Название региона",
-           "published_at": "Дата и время публикации вакансии"}
 
-ru_currency = {"AZN": "Манаты",
-               "BYR": "Белорусские рубли",
-               "EUR": "Евро",
-               "GEL": "Грузинский лари",
-               "KGS": "Киргизский сом",
-               "KZT": "Тенге",
-               "RUR": "Рубли",
-               "UAH": "Гривны",
-               "USD": "Доллары",
-               "UZS": "Узбекский сум"}
+class NameValue:
+    def __init__(self, name: str, value: str):
+        self.__name = name
+        self.__value = value
 
-ru_value = {"False": "Нет", "True": "Да",
-            "noExperience": "Нет опыта",
-            "between1And3": "От 1 года до 3 лет",
-            "between3And6": "От 3 до 6 лет",
-            "moreThan6": "Более 6 лет"}
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def value(self):
+        return self.__value
+
+
+en_ru_names = {
+    "": "",
+    "name": "Название",
+    "description": "Описание",
+    "key_skills": "Навыки",
+    "experience_id": "Опыт работы",
+    "premium": "Премиум-вакансия",
+    "employer_name": "Компания",
+    "salary_from": "Нижняя граница вилки оклада",
+    "salary_to": "Верхняя граница вилки оклада",
+    "salary_gross": "Оклад указан до вычета налогов",
+    "salary_currency": "Идентификатор валюты оклада",
+    "salary": "Оклад",
+    "area_name": "Название региона",
+    "published_at": "Дата и время публикации вакансии",
+    "published date": "Дата публикации вакансии"
+}
+
+en_ru_value = {
+    "": "",
+    "False": "Нет",
+    "True": "Да",
+    "noExperience": "Нет опыта",
+    "between1And3": "От 1 года до 3 лет",
+    "between3And6": "От 3 до 6 лет",
+    "moreThan6": "Более 6 лет",
+    "AZN": "Манаты",
+    "BYR": "Белорусские рубли",
+    "EUR": "Евро",
+    "GEL": "Грузинский лари",
+    "KGS": "Киргизский сом",
+    "KZT": "Тенге",
+    "RUR": "Рубли",
+    "UAH": "Гривны",
+    "USD": "Доллары",
+    "UZS": "Узбекский сум"
+}
+
+ru_en_names = dict(zip(en_ru_names.values(), en_ru_names.keys()))
+ru_en_values = dict(zip(en_ru_value.values(), en_ru_value.keys()))
 
 
 def strip_tags(string: str) -> str:
@@ -40,107 +66,121 @@ def strip_tags(string: str) -> str:
 
 
 def csv_reader(file_name):
-    columns = []
-    rows = []
     with open(file_name, encoding='utf-8-sig') as r_file:
         file_reader = csv.reader(r_file, delimiter=",")
-        is_first = True
         for row in file_reader:
-            if is_first:
-                columns = row
-                is_first = False
-            else:
-                rows.append(row)
-    return columns, rows
+            yield row
 
 
-def csv_filer(rows, columns) -> list:
-    result = []
+def csv_filer(rows, columns):
     for row in rows:
         if len(row) != len(columns) or "" in row:
             continue
-
         parse_row = dict()
         for index, name in enumerate(columns):
             values = row[index].split('\n')
             parse_row[name] = list(map(strip_tags, values))
-        result.append(parse_row)
-    return result
+        yield parse_row
 
 
-def print_vacancies(data_vacancies, dic_naming):
-    for vacancy in data_vacancies:
-        for name, value in formatter(vacancy, dic_naming).items():
-            if name not in dic_naming:
-                print(f'{name}: {value}')
-        print()
-
-
-def formatter(vacancy: dict, dic_naming: dict) -> dict:
+def formatter(vacancy: dict, naming) -> dict:
+    functions = {
+        "published_at": lambda v: NameValue("published date", formatter_date(parse_date(v[0]))),
+        "key_skills": lambda v: NameValue("key_skills", '\n'.join(v)),
+    }
     result = dict()
-    salary_is_recorded = False
     for name, value in vacancy.items():
-        if not salary_is_recorded and name.startswith("salary"):
-            salary = formatter_salary(vacancy)
-            result[dic_naming[salary[0]]] = salary[1]
-            salary_is_recorded = True
-        elif salary_is_recorded and name.startswith("salary"):
-            continue
-        elif name == "published_at":
-            date = reversed(value[0].split('T')[0].split('-'))
-            result["Дата публикации вакансии"] = '.'.join(date)
-        elif name == "key_skills":
-            result[dic_naming[name]] = '\n'.join(value)
-        elif name not in dic_naming:
+        if name.startswith("salary") and "salary" not in result:
+            s = formatter_salary(vacancy)
+            result['salary'] = s
+        elif name in functions:
+            r = functions[name](value)
+            result[r.name] = r.value
+        elif name not in functions and not name.startswith("salary"):
             result[name] = ", ".join(map(parse_value, value))
-        else:
-            result[dic_naming[name]] = ", ".join(map(parse_value, value))
-
-    return result
+    return rename_keys(result, naming)
 
 
-def formatter_salary(vacancy: dict) -> tuple:
+def rename_keys(vacancy: dict, naming: dict) -> dict:
+    return dict(map(lambda item: (naming[item[0]] if item[0] in naming else item[0], item[1]), vacancy.items()))
+
+
+def formatter_salary(vacancy: dict) -> str:
     gross = {"True": "Без вычета налогов", "False": "С вычетом налогов"}
     salary_from = '{:,}'.format(int(float(vacancy["salary_from"][0]))).replace(',', ' ')
     salary_to = '{:,}'.format(int(float(vacancy["salary_to"][0]))).replace(',', ' ')
-    salary_currency = ru_currency[vacancy["salary_currency"][0]]
-    salary_gross = gross[vacancy["salary_gross"][0].lower().capitalize()]
-    return "salary", f"{salary_from} - {salary_to} ({salary_currency}) ({salary_gross})"
+    salary_currency = en_ru_value[vacancy["salary_currency"][0]]
+    salary_gross = gross[vacancy["salary_gross"][0].capitalize()]
+    return f"{salary_from} - {salary_to} ({salary_currency}) ({salary_gross})"
+
+
+def parse_date(date: str):
+    if '-' in date:
+        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S%z')
+    return datetime.datetime.strptime(date, "%d.%m.%Y")
+
+
+def formatter_date(date):
+    return '.'.join(reversed(str(date.date()).split('-')))
 
 
 def parse_value(value: str):
-    if value in ru_value:
-        return ru_value[value]
+    if value in en_ru_value:
+        return en_ru_value[value]
     return value
 
 
-def cuter(arr: list) -> list:
-    result = []
-
-    for string in arr:
-        if len(string) > 100:
-            result.append(string[:100] + "...")
-        else:
-            result.append(string)
-    return result
+def cuter(string: str) -> str:
+    return string[:100] + ('' if len(string) < 100 else '...')
 
 
-my_table = prettytable.PrettyTable()
+def cuter_list(arr: list) -> list:
+    return [cuter(string) for string in arr]
 
-reader = csv_reader(input())
 
-if len(reader[0]) == len(reader[1]) == 0:
-    print("Пустой файл")
-elif len(reader[1]) == 0:
-    print("Нет данных")
-else:
-    a = list(map(lambda d: formatter(d, ru_name), csv_filer(reader[1], reader[0])))
-    my_table.field_names = ['№'] + list(a[0].keys())
+def print_table(columns, rows):
+    my_table = prettytable.PrettyTable()
+    for row in rows:
+        my_table.add_row(row)
+
+    my_table.field_names = columns
     my_table.max_width = 20
-    my_table.add_rows(map(lambda tup: [tup[0] + 1] + tup[1],
-                          enumerate(map(lambda value: cuter(value),
-                                        map(lambda d: list(d.values()), a)))))
     my_table.hrules = prettytable.ALL
     my_table.align = 'l'
+    print(my_table.get_string(fields=columns))
 
-    print(my_table)
+
+def validate_reader(reader):
+    counter = 0
+    for row in reader:
+        yield row
+        counter += 1
+
+    if counter == 0:
+        print("Пустой файл")
+        exit(0)
+    elif counter == 1:
+        print("Нет данных")
+        exit(0)
+
+
+def formatter_vacancies(list_vacancies):
+    result = map(lambda vacancy: formatter(vacancy, en_ru_names), list_vacancies)
+    return map(lambda tup: [tup[0] + 1] + tup[1],
+               enumerate(
+                   map(lambda value: cuter_list(value),
+                       map(lambda vacancy: vacancy.values(), result))))
+
+
+"""*****************************************************************************************************************"""
+
+csv_file_name = input()
+reader_ = validate_reader(csv_reader(csv_file_name))
+vacancies_from_csv = csv_filer(reader_, next(reader_))
+vacancies = formatter_vacancies(vacancies_from_csv)
+
+all_columns = (['№'] +
+               list(map(lambda key: en_ru_names[key],
+                        ["name", "description", "key_skills", "experience_id",
+                         "premium", "employer_name", "salary", "area_name", "published date"])))
+print_table(all_columns, vacancies)

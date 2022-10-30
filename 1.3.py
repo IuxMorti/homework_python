@@ -24,7 +24,7 @@ def is_bool(string: str) -> bool:
 
 
 def parse_bool(string: str) -> bool:
-    return string == "да"
+    return string == "Да"
 
 
 def get_type(string: str) -> type:
