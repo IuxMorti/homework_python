@@ -127,8 +127,7 @@ def average_salary(vacancy: dict):
 
 
 def strip_tags(string: str) -> str:
-    clean = re.compile("<.*?>")
-    return ' '.join(re.sub(clean, "", string).split())
+    return ' '.join(re.sub(re.compile("<.*?>"), "", string).split())
 
 
 def csv_reader(file_name):
@@ -142,11 +141,11 @@ def csv_filer(rows, columns):
     for row in rows:
         if len(row) != len(columns) or "" in row:
             continue
-        parse_row = dict()
+        vacancy = dict()
         for index, name in enumerate(columns):
             values = row[index].split('\n')
-            parse_row[name] = list(map(strip_tags, values))
-        yield parse_row
+            vacancy[name] = list(map(strip_tags, values))
+        yield vacancy
 
 
 def formatter(vacancy: dict, naming) -> dict:
@@ -297,8 +296,8 @@ def validate_required_columns(columns):
     return ['№'] + result if len(result) > 0 else result
 
 
-def formatter_vacancies(list_vacancies):
-    result = map(lambda vacancy: formatter(vacancy, en_ru_names), list_vacancies)
+def formatter_vacancies(vacancies):
+    result = map(lambda vacancy: formatter(vacancy, en_ru_names), vacancies)
     return map(lambda tup: [tup[0] + 1] + tup[1],
                enumerate(
                    map(lambda value: cuter_list(value),

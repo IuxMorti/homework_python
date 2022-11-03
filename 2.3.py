@@ -99,7 +99,6 @@ for rur_vacancy in rur_vacancies:
         if skill not in skills:
             skills[skill] = 0
         skills[skill] += 1
-
     if rur_vacancy["area_name"] not in cities:
         cities[rur_vacancy["area_name"]] = City(rur_vacancy["area_name"])
     cities[rur_vacancy["area_name"]].append(average_salary(rur_vacancy))
