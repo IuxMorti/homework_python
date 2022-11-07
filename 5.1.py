@@ -1,26 +1,27 @@
 import csv
 import re
-from dataclasses import dataclass
+
+from var_dump import var_dump
 
 
-@dataclass
 class DataSet:
     def __init__(self, file_name, vacancies_objects):
         self.file_name = file_name
         self.vacancies_objects = vacancies_objects
 
 
-@dataclass
 class Vacancy:
-    name: str
-    description: str
-    key_skills: list
-    experience_id: str
-    premium: str
-    employer_name: str
-    salary: object
-    area_name: str
-    published_at: str
+    def __init__(self, name: str, description: str, key_skills: list, experience_id: str, premium: str,
+                 employer_name: str, salary: object, area_name: str, published_at: str):
+        self.name = name
+        self.description = description
+        self.key_skills = key_skills
+        self.experience_id = experience_id
+        self.premium = premium
+        self.employer_name = employer_name
+        self.salary = salary
+        self.area_name = area_name
+        self.published_at = published_at
 
     @staticmethod
     def parse_from_row_csv(row):
@@ -36,33 +37,13 @@ class Vacancy:
         return Vacancy(name, description, key_skills, experience_id, premium, employer_name,
                        salary, area_name, published_at)
 
-    def __getitem__(self, item):
-        if item == 'name':
-            return self.name
-        if item == 'description':
-            return self.description
-        if item == 'key_skills':
-            return self.key_skills
-        if item == 'experience_id':
-            return self.experience_id
-        if item == 'premium':
-            return self.premium
-        if item == 'employer_name':
-            return self.employer_name
-        if item == 'salary':
-            return self.salary
-        if item == 'area_name':
-            return self.area_name
-        if item == 'published_at':
-            return self.published_at
 
-
-@dataclass
 class Salary:
-    salary_from: str
-    salary_to: str
-    salary_gross: str
-    salary_currency: str
+    def __init__(self, salary_from, salary_to, salary_gross, salary_currency):
+        self.salary_from = salary_from
+        self.salary_to = salary_to
+        self.salary_gross = salary_gross
+        self.salary_currency = salary_currency
 
 
 def strip_tags(string: str) -> str:
@@ -102,3 +83,5 @@ inp_bounds = input("Введите диапазон вывода: ")
 list_columns = input("Введите требуемые столбцы: ")
 
 reader_ = validate_reader(csv_reader(csv_file_name))
+
+var_dump(DataSet(csv_file_name, [v for v in csv_filer(reader_, next(reader_))]))
